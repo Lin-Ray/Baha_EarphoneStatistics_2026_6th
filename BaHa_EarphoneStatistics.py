@@ -5,6 +5,7 @@ import requests
 import pandas as pd
 import os
 import random
+import logging
 from selenium import webdriver 
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
@@ -34,6 +35,11 @@ opt.add_argument('--headless=new')
 opt.add_argument('--log-level=3')
 opt.add_argument('--disable-logging')
 driver = webdriver.Edge(options=opt)
+
+# logging
+logger = logging.getLogger(__name__)
+log_level = logging.DEBUG if os.getenv('BAHA_DEBUG', '').lower() in ('1', 'true', 'yes') else logging.INFO
+logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s: %(message)s')
 
 # 初始化頁面
 def init_page(pageURL):
@@ -73,6 +79,41 @@ def init_page(pageURL):
         if current_try == try_times and request_status.status_code != 200:
             print("錯誤要求多次，請稍後再試...")
             exit(1)
+
+# 嘗試多次載入頁面，先用 requests，失敗後用 Selenium
+def fetch_page_with_retry(page_url, max_attempts=3, selenium_fallback=True):
+
+    global post_containers
+    for attempt in range(1, max_attempts + 1):
+        try:
+            logger.debug('Fetch attempt %d for %s via requests', attempt, page_url)
+            init_page(page_url)
+        except Exception as e:
+            logger.exception('init_page failed on attempt %d: %s', attempt, e)
+
+        if post_containers and len(post_containers) > 0:
+            logger.debug('Found %d posts via requests on attempt %d', len(post_containers), attempt)
+            return True
+
+        # requests didn't yield posts — try Selenium render if allowed
+        if selenium_fallback:
+            try:
+                logger.info('Requests returned no posts; trying Selenium render for %s (attempt %d)', page_url, attempt)
+                driver.get(page_url)
+                time.sleep(0.6)
+                set_page(driver.page_source)
+            except Exception as e:
+                logger.exception('Selenium fetch failed on attempt %d: %s', attempt, e)
+
+            if post_containers and len(post_containers) > 0:
+                logger.debug('Found %d posts via Selenium on attempt %d', len(post_containers), attempt)
+                return True
+
+        # small backoff before next attempt
+        time.sleep(0.5 * attempt)
+
+    logger.warning('No posts found for %s after %d attempts', page_url, max_attempts)
+    return False
 
 # 設定頁面
 def set_page(request_status_text):
@@ -159,28 +200,87 @@ def split_brand_model(s: str):
 
 # 取得總頁數
 def get_total_pages():
-    headers["User-Agent"] = get_random_ua()
+    # 嘗試用 requests 多次取得並解析分頁，若失敗則使用 Selenium 做 fallback
+    if headers["User-Agent"] is None:
+        headers["User-Agent"] = get_random_ua()
 
-    request_status = requests.get(URL, headers=headers)
+    else:
+        headers["User-Agent"] = get_random_ua(exclude=headers.get("User-Agent"))
 
-    if request_status.status_code != 200:
-        print(f"無法取得頁面，狀態碼: {request_status.status_code}")
-        return 1
 
-    soup = BeautifulSoup(request_status.text, 'html.parser')
+    for attempt in range(3):
+        try:
+            r = requests.get(URL, headers=headers, timeout=8)
+        except Exception:
+            time.sleep(0.5)
+            continue
 
-    pagination = soup.find('p', class_='BH-pagebtnA')
-    if pagination:
-        page_links = pagination.find_all('a')
+        if r.status_code != 200:
+            time.sleep(0.5)
+            continue
+
+        soup_local = BeautifulSoup(r.text, 'html.parser')
+
+        # 先找常見的分頁容器
+        pagination = soup_local.find('p', class_='BH-pagebtnA') or soup_local.find('div', class_='BH-pagebtnA')
         page_numbers = []
-        for link in page_links:
+
+        if pagination:
+            for a in pagination.find_all('a'):
+                txt = a.get_text().strip()
+                if txt.isdigit():
+                    page_numbers.append(int(txt))
+                else:
+                    href = a.get('href', '')
+                    m = re.search(r'[?&]page=(\d+)', href)
+                    if m:
+                        page_numbers.append(int(m.group(1)))
+
+        # 若仍找不到，可掃描頁面所有連結尋找 page= 的 href 或數字文字
+        if not page_numbers:
+            for a in soup_local.find_all('a', href=True):
+                href = a['href']
+                m = re.search(r'[?&]page=(\d+)', href)
+                if m:
+                    page_numbers.append(int(m.group(1)))
+                else:
+                    txt = a.get_text().strip()
+                    if txt.isdigit():
+                        page_numbers.append(int(txt))
+
+        if page_numbers:
+            total = max(page_numbers)
+            if total >= 1:
+                return total
+
+    # requests 無法正確取得多頁資訊，使用 Selenium 做最後嘗試（rendered page）
+    try:
+        headers["User-Agent"] = get_random_ua(exclude=headers.get("User-Agent"))
+        driver.get(URL)
+        time.sleep(0.5)
+        els = driver.find_elements(By.CSS_SELECTOR, 'p.BH-pagebtnA a, div.BH-pagebtnA a, a')
+        page_numbers = []
+        for el in els:
+            txt = el.text.strip()
             try:
-                page_num = int(link.get_text())
-                page_numbers.append(page_num)
-            except ValueError:
-                continue
+                if txt.isdigit():
+                    page_numbers.append(int(txt))
+            except Exception:
+                pass
+            try:
+                href = el.get_attribute('href') or ''
+                m = re.search(r'[?&]page=(\d+)', href)
+                if m:
+                    page_numbers.append(int(m.group(1)))
+            except Exception:
+                pass
+
         if page_numbers:
             return max(page_numbers)
+    except Exception:
+        pass
+
+    # 最後退回 1（呼叫端須處理只有 1 的情境）
     return 1
 
 # Excel初始化格式
@@ -200,7 +300,7 @@ def excel_init(out, df):
 
         ws.merge_cells('A1:A2')
         excel_title_style(ws['A1'])
-        ws['A1'] = '名稱'
+        ws['A1'] = '名稱(樓層)'
         ws.merge_cells('B1:D1')
         excel_title_style(ws['B1'])
         ws['B1'] = '內容'
@@ -221,7 +321,9 @@ def excel_init(out, df):
         #region 寫入資料，從第3列開始
 
         for i, row in enumerate(df.to_dict(orient='records'), start=3):
-            ws.cell(row=i, column=1, value=row.get('名稱', ''))
+            # 名稱(樓層)
+            name_floor = f"{row.get('名稱', '')}({row.get('樓層', '')})"
+            ws.cell(row=i, column=1, value=name_floor)
             # 每個區塊拆成 廠牌, 型號
             ws.cell(row=i, column=2, value=row.get('耳罩', ''))
             ws.cell(row=i, column=3, value=row.get('耳塞', ''))
@@ -333,11 +435,14 @@ def copy_sheet_manual(out_path, new_name="【手動調整】2026年第六屆巴�
 
 total_pages = get_total_pages()
 
-for page in range(1, 2):
+for page in range(1, total_pages + 1):
     print(f"正在處理第 {page} 頁，共 {total_pages} 頁")
     page_url = f"https://forum.gamer.com.tw/C.php?page={page}&bsn=60535&snA=28366"
     headers["User-Agent"] = get_random_ua(exclude=headers.get("User-Agent"))
-    init_page(page_url)
+    ok = fetch_page_with_retry(page_url, max_attempts=3, selenium_fallback=True)
+    if not ok:
+        logger.warning('Skipping page %d because no posts were found after retries', page)
+        continue
 
     selenium_posts = driver.find_elements(By.CLASS_NAME, 'c-post')
 
@@ -436,12 +541,6 @@ for page in range(1, 2):
             '前端': parts.get('前端', ''),
             '連結': link
         })
-
-        print(f"名稱: {username}，樓層: {floor}，連結: {link}")
-        print(f"耳罩: {parts.get('耳罩', '')}")
-        print(f"耳塞: {parts.get('耳塞', '')}")
-        print(f"前端: {parts.get('前端', '')}")
-        print("-----")
 
 #region 輸出成 Excel 檔案
 
