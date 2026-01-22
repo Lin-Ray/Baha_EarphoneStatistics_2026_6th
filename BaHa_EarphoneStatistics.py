@@ -134,32 +134,9 @@ def parse_content_sections(content):
                 val = '\n'.join([ln.strip() for ln in val.splitlines() if ln.strip()])
                 sections[key].append(val)
 
-    result = {}
-
-    for k, vals in sections.items():
-        # 原始欄位（逗號合併）
-        result[k] = ','.join(vals) if vals else ''
-
-        brands = []
-        models = []
-        for v in vals:
-            # v 可能包含多個項目，用換行、; 或 / 或 、 等分隔
-            items = re.split(r'[\n\r;；/／\|、]', v)
-            for it in items:
-                it = it.strip()
-                if not it:
-                    continue
-                b, m = split_brand_model(it)
-                if b:
-                    brands.append(b)
-                if m:
-                    models.append(m)
-
-        result[f"{k}_廠牌"] = ', '.join(dict.fromkeys(brands)) if brands else ''
-        result[f"{k}_型號"] = ', '.join(dict.fromkeys(models)) if models else ''
-
-    return result
-
+        return {k: ','.join(v) if v else '' for k, v in sections.items()}         
+    
+    return {'耳罩': '', '耳塞': '', '前端': ''}
 
 # 最後整理：保留原始合併欄位，同時為每個 section 產生 廠牌 與 型號 欄位
 def split_brand_model(s: str):
@@ -224,22 +201,18 @@ def excel_init(out, df):
         ws.merge_cells('A1:A2')
         excel_title_style(ws['A1'])
         ws['A1'] = '名稱'
-        ws.merge_cells('B1:G1')
+        ws.merge_cells('B1:D1')
         excel_title_style(ws['B1'])
         ws['B1'] = '內容'
-        ws.merge_cells('H1:H2')
-        excel_title_style(ws['H1'])
-        ws['H1'] = '連結'
+        ws.merge_cells('E1:E2')
+        excel_title_style(ws['E1'])
+        ws['E1'] = '連結'
 
         #endregion  
 
         #region 第二列：子欄位（每個區塊拆成 廠牌, 型號）
 
-        subtitle_row = [
-            '耳罩_廠牌', '耳罩_型號',
-            '耳塞_廠牌', '耳塞_型號',
-            '前端_廠牌', '前端_型號'
-        ]
+        subtitle_row = [ '耳罩', '耳塞', '前端']
 
         for col_idx, h in enumerate(subtitle_row, start=2):
             ws.cell(row=2, column=col_idx, value=h)
@@ -250,21 +223,17 @@ def excel_init(out, df):
         for i, row in enumerate(df.to_dict(orient='records'), start=3):
             ws.cell(row=i, column=1, value=row.get('名稱', ''))
             # 每個區塊拆成 廠牌, 型號
-            ws.cell(row=i, column=2, value=row.get('耳罩_廠牌', ''))
-            ws.cell(row=i, column=3, value=row.get('耳罩_型號', ''))
-            ws.cell(row=i, column=4, value=row.get('耳塞_廠牌', ''))
-            ws.cell(row=i, column=5, value=row.get('耳塞_型號', ''))
-            ws.cell(row=i, column=6, value=row.get('前端_廠牌', ''))
-            ws.cell(row=i, column=7, value=row.get('前端_型號', ''))
+            ws.cell(row=i, column=2, value=row.get('耳罩', ''))
+            ws.cell(row=i, column=3, value=row.get('耳塞', ''))
+            ws.cell(row=i, column=4, value=row.get('前端', ''))
 
             link_val = row.get('連結', '')
             if link_val:
-                cell = ws.cell(row=i, column=8, value='連結')
+                cell = ws.cell(row=i, column=5, value='連結')
                 cell.hyperlink = link_val
                 cell.style = 'Hyperlink'
             else:
-                ws.cell(row=i, column=8, value='')
-
+                ws.cell(row=i, column=5, value='')
         #endregion
 
         #region 自動調整欄寬
@@ -308,7 +277,7 @@ def excel_init(out, df):
         # 根據內容行數調整列高（第3列開始）
         for row_idx in range(3, ws.max_row + 1):
             max_lines = 1
-            for col_idx in range(2, 8):
+            for col_idx in range(2, 5):
                 cell = ws.cell(row=row_idx, column=col_idx)
                 if cell.value:
                     lines = str(cell.value).splitlines()
@@ -462,19 +431,16 @@ for page in range(1, 2):
             '名稱': username,
             '樓層': floor,
             '內容': content,
-            '耳罩_廠牌': parts.get('耳罩_廠牌', ''),
-            '耳罩_型號': parts.get('耳罩_型號', ''),
-            '耳塞_廠牌': parts.get('耳塞_廠牌', ''),
-            '耳塞_型號': parts.get('耳塞_型號', ''),
-            '前端_廠牌': parts.get('前端_廠牌', ''),
-            '前端_型號': parts.get('前端_型號', ''),
+            '耳罩': parts.get('耳罩', ''),
+            '耳塞': parts.get('耳塞', ''),
+            '前端': parts.get('前端', ''),
             '連結': link
         })
 
         print(f"名稱: {username}，樓層: {floor}，連結: {link}")
-        print(f"耳罩_廠牌: {parts.get('耳罩_廠牌', '')}，耳罩_型號: {parts.get('耳罩_型號', '')}")
-        print(f"耳塞_廠牌: {parts.get('耳塞_廠牌', '')}，耳塞_型號: {parts.get('耳塞_型號', '')}")
-        print(f"前端_廠牌: {parts.get('前端_廠牌', '')}，前端_型號: {parts.get('前端_型號', '')}")
+        print(f"耳罩: {parts.get('耳罩', '')}")
+        print(f"耳塞: {parts.get('耳塞', '')}")
+        print(f"前端: {parts.get('前端', '')}")
         print("-----")
 
 #region 輸出成 Excel 檔案
