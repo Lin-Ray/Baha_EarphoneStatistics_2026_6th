@@ -44,4 +44,8 @@ python BaHa_EarphoneStatistics.py
 - [手動調整處理Google試算表](https://docs.google.com/spreadsheets/d/1Le_FdBURtgBpq36VCTlG3YNb4RJ2YHwWYayjOKjVgqo/edit?usp=sharing)
 - 個人小屋心得分享(待補)  
 
-[^1]: 詳細內容請見 [手動調整處理Google試算表]。
+
+[^1]: 詳細內容請見 [手動調整處理Google試算表][GoogleDocs]。
+
+
+[GoogleDocs]: https://docs.google.com/spreadsheets/d/1Le_FdBURtgBpq36VCTlG3YNb4RJ2YHwWYayjOKjVgqo/edit?usp=sharing
