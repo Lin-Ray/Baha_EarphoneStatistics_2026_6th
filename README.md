@@ -41,7 +41,7 @@ python BaHa_EarphoneStatistics.py
 ## 參考資料與連結
 --
 - [巴哈姆特-2026年初有線耳機普查兼前端普查——第六屆](https://forum.gamer.com.tw/C.php?page=1&bsn=60535&snA=28366)  
-- [手動調整處理Google試算表]: https://docs.google.com/spreadsheets/d/1Le_FdBURtgBpq36VCTlG3YNb4RJ2YHwWYayjOKjVgqo/edit?usp=sharing
+- [手動調整處理Google試算表](https://docs.google.com/spreadsheets/d/1Le_FdBURtgBpq36VCTlG3YNb4RJ2YHwWYayjOKjVgqo/edit?usp=sharing)
 - 個人小屋心得分享(待補)  
 
 [^1]: 詳細內容請見 [手動調整處理Google試算表]。
