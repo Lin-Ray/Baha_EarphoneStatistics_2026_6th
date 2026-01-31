@@ -33,13 +33,15 @@ python BaHa_EarphoneStatistics.py
 
 ## 未來展望
 --
-- (已完成) 因為內容資料清洗(會有人寫下心得、或者耳機型號為特別版有標註...等)這方面會有困難，故有創立另一表為手動更改去統一校正，可參考`【手動調整】`工作表[^2]。
-- (已完成) 使用Google試算表內部函式去處裡將各分類再細分`廠牌`、`型號`，可參考`廠牌、型號資料處理`工作表[^2]。
+- (已完成) 因為內容資料清洗(會有人寫下心得、或者耳機型號為特別版有標註...等)這方面會有困難，故有創立另一表為手動更改去統一校正，可參考`【手動調整】`工作表[^1]。
+- (已完成) 使用Google試算表內部函式去處裡將各分類再細分`廠牌`、`型號`，可參考`廠牌、型號資料處理`工作表[^1]。
 - 加入參考價位(組合處理好的廠牌與型號，並從比價網站來抓取價格範圍)
 
 
 ## 參考資料與連結
 --
-[^1]: [巴哈姆特-2026年初有線耳機普查兼前端普查——第六屆]: https://forum.gamer.com.tw/C.php?page=1&bsn=60535&snA=28366  
-[^2]: [手動調整處理Google試算表]: https://docs.google.com/spreadsheets/d/1Le_FdBURtgBpq36VCTlG3YNb4RJ2YHwWYayjOKjVgqo/edit?usp=sharing
+- [巴哈姆特-2026年初有線耳機普查兼前端普查——第六屆](https://forum.gamer.com.tw/C.php?page=1&bsn=60535&snA=28366)  
+- [手動調整處理Google試算表]: https://docs.google.com/spreadsheets/d/1Le_FdBURtgBpq36VCTlG3YNb4RJ2YHwWYayjOKjVgqo/edit?usp=sharing
 - 個人小屋心得分享(待補)  
+
+[^1]: 詳細內容請見 [手動調整處理Google試算表]。
